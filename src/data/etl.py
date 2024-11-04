@@ -4,8 +4,8 @@ from datetime import datetime
 import os
 
 def load_and_combine_data():
-    """Load and combine COVID-19 data from the raw directory."""
-    data_dir = 'data/raw/daily_reports'
+    """Load and combine US COVID-19 data from the raw directory."""
+    data_dir = 'data/raw/daily_reports_us'
     all_data = []
     
     for file in sorted(os.listdir(data_dir)):
@@ -20,35 +20,31 @@ def load_and_combine_data():
     return pd.concat(all_data, ignore_index=True)
 
 def clean_data(df):
-    """Clean and standardize the COVID-19 data."""
-    # Standardize column names
-    column_mapping = {
-        'Country_Region': 'Country',
-        'Province_State': 'Province',
-        'Lat': 'Latitude',
-        'Long_': 'Longitude',
-        'Last_Update': 'LastUpdate'
-    }
-    df = df.rename(columns={k: v for k, v in column_mapping.items() if k in df.columns})
-    
+    """Clean and standardize the US COVID-19 data."""
     # Ensure essential columns exist
-    essential_columns = ['Country', 'Date', 'Confirmed', 'Deaths', 'Recovered', 'Active']
+    essential_columns = [
+        'Province_State', 'Date', 'Confirmed', 'Deaths',
+        'Recovered', 'Active', 'Incident_Rate', 'Total_Test_Results',
+        'Hospitalization_Rate', 'Case_Fatality_Ratio'
+    ]
+    
     for col in essential_columns:
         if col not in df.columns:
-            df[col] = 0 if col not in ['Country', 'Date'] else None
+            df[col] = 0 if col != 'Province_State' else None
     
     # Clean numeric columns
-    numeric_columns = ['Confirmed', 'Deaths', 'Recovered', 'Active']
-    for col in numeric_columns:
-        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
+    numeric_columns = [
+        'Confirmed', 'Deaths', 'Recovered', 'Active',
+        'Incident_Rate', 'Total_Test_Results',
+        'Hospitalization_Rate', 'Case_Fatality_Ratio'
+    ]
     
-    # Clean country names
-    df['Country'] = df['Country'].replace({
-        'Mainland China': 'China',
-        'US': 'United States',
-        'Korea, South': 'South Korea',
-        'Korea, North': 'North Korea',
-        'Taiwan*': 'Taiwan'
+    for col in numeric_columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+    
+    # Clean state names
+    df['Province_State'] = df['Province_State'].replace({
+        'Recovered': 'Unknown'  # Handle special case in the data
     })
     
     # Calculate Active cases where missing
@@ -57,28 +53,35 @@ def clean_data(df):
     
     return df
 
-def aggregate_by_country(df):
-    """Aggregate data by country and date."""
-    agg_cols = ['Confirmed', 'Deaths', 'Recovered', 'Active']
+def aggregate_by_state(df):
+    """Aggregate data by state and date."""
+    agg_cols = [
+        'Confirmed', 'Deaths', 'Recovered', 'Active',
+        'Total_Test_Results', 'Hospitalization_Rate'
+    ]
     
-    # Group by country and date
-    country_data = df.groupby(['Date', 'Country'])[agg_cols].sum().reset_index()
+    # Group by state and date
+    state_data = df.groupby(['Date', 'Province_State'])[agg_cols].sum().reset_index()
     
     # Calculate daily changes
-    country_data = country_data.sort_values(['Country', 'Date'])
+    state_data = state_data.sort_values(['Province_State', 'Date'])
     for col in agg_cols:
-        country_data[f'New{col}'] = country_data.groupby('Country')[col].diff().fillna(0)
-        country_data[f'New{col}'] = country_data[f'New{col}'].clip(lower=0)
+        state_data[f'New{col}'] = state_data.groupby('Province_State')[col].diff().fillna(0)
+        state_data[f'New{col}'] = state_data[f'New{col}'].clip(lower=0)
     
-    return country_data
+    # Calculate rates
+    state_data['Case_Fatality_Ratio'] = (state_data['Deaths'] / state_data['Confirmed'] * 100).clip(lower=0)
+    state_data['Testing_Rate'] = (state_data['Total_Test_Results'] / state_data['Confirmed']).clip(lower=0)
+    
+    return state_data
 
 def save_processed_data(df):
     """Save processed data to CSV files."""
     output_dir = 'data/processed'
     os.makedirs(output_dir, exist_ok=True)
     
-    # Save country-level data
-    output_file = os.path.join(output_dir, 'covid_data_by_country.csv')
+    # Save state-level data
+    output_file = os.path.join(output_dir, 'us_covid_data_by_state.csv')
     df.to_csv(output_file, index=False)
     print(f"Saved processed data to {output_file}")
 
@@ -94,16 +97,16 @@ def run_etl():
     print("Cleaning data...")
     cleaned_data = clean_data(raw_data)
     
-    # Aggregate by country
+    # Aggregate by state
     print("Aggregating data...")
-    country_data = aggregate_by_country(cleaned_data)
+    state_data = aggregate_by_state(cleaned_data)
     
     # Save processed data
     print("Saving processed data...")
-    save_processed_data(country_data)
+    save_processed_data(state_data)
     
     print("ETL process completed successfully.")
-    return country_data
+    return state_data
 
 if __name__ == "__main__":
     run_etl()
