@@ -17,14 +17,22 @@ streamlit run src/data/app.py
 ## Estrutura do Projeto
 
 ```mermaid
-graph TD;
-    A["acquisition.py"]-->|"Downloads raw data"|B["data/raw/"];
-    B-->|"Raw CSV files"|C["etl.py"];
-    C-->|"Processed data"|D["data/processed/"];
-    D-->|"Loads data"|E["data_loader.py"];
-    E-->|"Provides data"|F["app.py"];
-    G["visualization.py"]-->|"Creates charts"|F;
-    H["charts.py"]-->|"Creates charts"|F;
+flowchart LR
+    subgraph Coleta de Dados
+        A(Start) --> B{Data Collection}
+        B --> C[Data Sources]
+        B --> D[Raw Storage]
+    end
+
+    subgraph Processamento
+        D --> E{Processing}
+        E --> F[Analysis]
+        E --> G(Error Handler)
+        F --> H{Visualization}
+        H --> I(Insights)
+    end
+
+    B --> G
 ```
 
 ### Descrição dos Arquivos Principais
