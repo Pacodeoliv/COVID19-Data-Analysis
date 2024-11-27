@@ -49,6 +49,14 @@ flowchart LR
 - Mapa interativo mostrando os casos confirmados por estado.
 - Gráficos de casos acumulados, testes, hospitalizações, novos casos diários, e taxa de fatalidade.
 
+#Painel do Projeto
+
+- streamlit run src/data/app.py      
+
+
+![image](https://github.com/user-attachments/assets/a5fd777e-fc77-4243-bf50-cb90049a8c11)
+
+
 ## Fonte dos Dados
 
 Este projeto utiliza dados do repositório da [Johns Hopkins University CSSEGISandData/COVID-19](https://github.com/CSSEGISandData/COVID-19).
